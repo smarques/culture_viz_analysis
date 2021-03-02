@@ -4,11 +4,13 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from dateutil.parser import parse
-import json
+import json, re
 import matplotlib.pyplot as plt
 import seaborn as sns     
 import altair as alt
 import plotly.express as px
+import nltk
+import wordcloud
 
 #st.set_page_config(layout="wide")
 
@@ -77,8 +79,7 @@ st.sidebar.markdown("## Individuo vs Associazione")
 ind_cb = st.sidebar.checkbox('Individuo', True)
 assoc_cb = st.sidebar.checkbox('Associazione', True)
 
-
-def buildAttivitaQuery():
+def buildAttivitaList():
   q = []
   if(organizzazione_cb):
     q.append('organizzazione == 1')
@@ -90,7 +91,10 @@ def buildAttivitaQuery():
     q.append('promozione == 1')
   if(educazione_cb):
     q.append('educazione == 1')
-  return ' | '.join(q)
+  return q;
+
+def buildAttivitaQuery():  
+  return ' | '.join(buildAttivitaList())
 
 def buildProvinciaQuery():
   q = []
@@ -118,19 +122,23 @@ def buildIndAssocQuery():
     q.append('`anagrafica.ind_assoc` == "associazione"')
   return ' | '.join(q)
 
-qa = buildAttivitaQuery();
-if (len(qa) == 0):
+AttivitaQuery = buildAttivitaQuery();
+if (len(AttivitaQuery) == 0):
   selectedAnagrafiche = anagrafiche
 else:
-  selectedAnagrafiche = anagrafiche.query(qa)
+  selectedAnagrafiche = anagrafiche.query(AttivitaQuery)
 
-qp = buildProvinciaQuery();
-if (len(qp) > 0):
-  selectedAnagrafiche = selectedAnagrafiche.query(qp)
+ProvinciaQuery = buildProvinciaQuery();
+if (len(ProvinciaQuery) > 0):
+  selectedAnagrafiche = selectedAnagrafiche.query(ProvinciaQuery)
 
-qia = buildIndAssocQuery();
-if (len(qia) > 0):
-  selectedAnagrafiche = selectedAnagrafiche.query(qia)
+IndAssocQuery = buildIndAssocQuery();
+if (len(IndAssocQuery) > 0):
+  selectedAnagrafiche = selectedAnagrafiche.query(IndAssocQuery)
+
+###############
+## START 
+##############
 
 st.title('Visualising Culture')
 """
@@ -171,3 +179,117 @@ f = px.histogram(selectedAnagrafiche, x='anagrafica.altro_lavoro', title='Altra 
 f.update_xaxes(title='Altra Occupazione')
 f.update_yaxes(title='No. di casi')
 st.plotly_chart(f)
+
+
+############################  
+## WORD CLOUD
+"""
+## WORD CLOUD
+"""
+
+activities = {
+    "produzione": [
+        "Arti Visive",
+        "Artigianato Artistico",
+        "Costumi",
+        "Danza",
+        "Direzione Orchestra / Coro",
+        "Disegno / Comics",
+        "Game Art",
+        "Musica",
+        "Produzione Cinematografica",
+        "Regia",
+        "Sceneggiatura",
+        "Scenografia",
+        "Scrittura",
+        "Spettacolo Itinerante",
+        "Teatro / Performance",
+        "Video / Film Making"
+    ],
+    "organizzazione": [
+        "Gestione Istituzione culturale",
+        "Gestione struttura / associazione spettacolo dal vivo",
+        "Gestione sale cinematografiche",
+        "Gestione spazi polifunzionali",
+        "Curatela e/o organizzazione di mostre"
+    ],
+    "educazione": [
+        "Laboratori con le scuole",
+        "Corsi destinati alle aziende",
+        "Laboratori in Istituzioni culturali",
+        "Corsi individuali / destinati a privati"
+    ],
+    "promozione": [
+        "Cicli di conferenze",
+        "Presentazioni / Premi letterari",
+        "Incontri / Seminari",
+        "Indagini / Studi / Pubblicazioni",
+        "Agente / Gallerista"
+    ],
+    "supporto": [
+        "Attrezzista",
+        "Doppiaggio",
+        "Effetti speciali",
+        "Fornitura servizi museali",
+        "Light designer",
+        "Macchinista",
+        "Montaggio",
+        "Restauro",
+        "Rigger",
+        "Servizi biglietteria",
+        "Servizi ristorazione",
+        "Supporto tecnico alla regia",
+        "Tecnico del suono",
+        "Tecnico di scena",
+        "Truccatore"
+    ]
+}
+
+
+
+textCols = list(filter(lambda s: re.search('riflessioni',s), df.columns));
+
+AttivitaQuery = buildAttivitaQuery();
+if (len(AttivitaQuery) == 0):
+  fullFiltered = df
+else:
+  fullFiltered = df.query(AttivitaQuery)
+
+ProvinciaQuery = buildProvinciaQuery();
+if (len(ProvinciaQuery) > 0):
+  fullFiltered = fullFiltered.query(ProvinciaQuery)
+
+IndAssocQuery = buildIndAssocQuery();
+if (len(IndAssocQuery) > 0):
+  fullFiltered = fullFiltered.query(IndAssocQuery)
+
+wordcloudColumns =  list(filter(lambda s: re.search('['+AttivitaQuery+']',s), textCols));
+
+wordCloud = fullFiltered[wordcloudColumns].fillna('').copy()
+wordCloud['final'] = '';
+for k in wordcloudColumns:
+  wordCloud['final'] = wordCloud['final'] + ' ' + wordCloud[k].map(str)
+
+allwords = wordCloud['final'].str.cat(sep=' ')
+
+from nltk.corpus import stopwords
+# from nltk.tokenize import word_tokenize
+# from wordcloud import WordCloud
+from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
+
+
+stop_words = set(stopwords.words('italian'))
+xtra_stops = set(["c'è",'già','me'])
+
+wc = WordCloud(colormap="hot", max_words=100, 
+    stopwords=(stop_words | xtra_stops),width=1400, height=1400)
+wc.generate(allwords)
+#image_colors = ImageColorGenerator(image)
+
+# show the figure
+f = plt.figure(figsize=(1400,1400))
+fig, axes = plt.subplots(1, 2, gridspec_kw={'width_ratios': [100, 1]})
+axes[0].imshow(wc, interpolation="bilinear")
+for ax in axes:
+        ax.set_axis_off()
+st.pyplot(fig)
