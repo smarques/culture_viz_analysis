@@ -51,7 +51,7 @@ df['anagrafica.titoloStudio'].replace({'':'non compilato'}, inplace=True)
 
 anagrafiche = df.loc[:,['anagrafica.ind_assoc', 'anagrafica.provincia','anagrafica.data',
        'anagrafica.formaGiuridica', 'anagrafica.titoloStudio',
-       'anagrafica.altro_lavoro', 'anagrafica.comune','anni_di_attivita',
+       'anagrafica.altro_lavoro', 'anagrafica.comune','anni_di_attivita','anagrafica.perc_reddito','anagrafica.perc_tempo',
        'organizzazione', 'produzione', 'supporto', 'promozione', 'educazione']]
 
 
@@ -180,7 +180,32 @@ f.update_xaxes(title='Altra Occupazione')
 f.update_yaxes(title='No. di casi')
 st.plotly_chart(f)
 
+timeismoney = selectedAnagrafiche[['anagrafica.perc_tempo','anagrafica.perc_reddito','anagrafica.provincia']].fillna(0).astype({'anagrafica.perc_tempo':int,'anagrafica.perc_reddito':int,'anagrafica.provincia':str}).query('`anagrafica.perc_tempo` > 0')
+# timeismoney
+# c = alt.Chart(timeismoney).mark_circle().encode(
+#    x='anagrafica.perc_tempo', y='anagrafica.perc_reddito', size='anagrafica.perc_reddito', color='anagrafica.provincia', tooltip=['anagrafica.perc_tempo', 'anagrafica.perc_reddito', 'anagrafica.provincia'])
+# st.altair_chart(c, use_container_width=True)
+# st.vega_lite_chart(timeismoney, {
+#      'mark': {'type': 'circle', 'tooltip': True},
+#      'encoding': {
+#          'x': {'field': 'anagrafica.perc_tempo', 'type': 'quantitative'},
+#          'y': {'field': 'anagrafica.perc_reddito', 'type': 'quantitative'},
+#          'size': {'field': 'anagrafica.perc_reddito', 'type': 'quantitative'},
+#          'color': {'field': 'anagrafica.perc_tempo', 'type': 'quantitative'},
+#      }
+#  })
 
+fig = px.scatter(timeismoney, x="anagrafica.perc_tempo", y="anagrafica.perc_reddito", color="anagrafica.provincia")
+fig.update_xaxes(title='Percentuale Tempo Dedicato')
+fig.update_yaxes(title='Percentuale Reddito')
+st.plotly_chart(fig,use_container_width=True, title="pippo")
+
+# tempo = pd.to_numeric(selectedAnagrafiche['anagrafica.perc_tempo']).fillna(0)
+# tempo = tempo[tempo > 0].mean()
+# reddito = pd.to_numeric(selectedAnagrafiche['anagrafica.perc_reddito']).fillna(0)
+# reddito = reddito[reddito > 0].mean()
+# tempo
+# reddito
 ############################  
 ## WORD CLOUD
 """
@@ -246,7 +271,6 @@ activities = {
 }
 
 
-
 textCols = list(filter(lambda s: re.search('riflessioni',s), df.columns));
 
 AttivitaQuery = buildAttivitaQuery();
@@ -263,33 +287,94 @@ IndAssocQuery = buildIndAssocQuery();
 if (len(IndAssocQuery) > 0):
   fullFiltered = fullFiltered.query(IndAssocQuery)
 
-wordcloudColumns =  list(filter(lambda s: re.search('['+AttivitaQuery+']',s), textCols));
+ShowWordCloud = False;
 
-wordCloud = fullFiltered[wordcloudColumns].fillna('').copy()
-wordCloud['final'] = '';
-for k in wordcloudColumns:
-  wordCloud['final'] = wordCloud['final'] + ' ' + wordCloud[k].map(str)
+if (ShowWordCloud):
+  wordcloudColumns =  list(filter(lambda s: re.search('['+AttivitaQuery+']',s), textCols));
 
-allwords = wordCloud['final'].str.cat(sep=' ')
+  wordCloud = fullFiltered[wordcloudColumns].fillna('').copy()
+  wordCloud['final'] = '';
+  for k in wordcloudColumns:
+    wordCloud['final'] = wordCloud['final'] + ' ' + wordCloud[k].map(str)
 
-from nltk.corpus import stopwords
-# from nltk.tokenize import word_tokenize
-# from wordcloud import WordCloud
-from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
+  allwords = wordCloud['final'].str.cat(sep=' ')
+
+  from nltk.corpus import stopwords
+  # from nltk.tokenize import word_tokenize
+  # from wordcloud import WordCloud
+  from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 
 
-stop_words = set(stopwords.words('italian'))
-xtra_stops = set(["c'è",'già','me'])
+  stop_words = set(stopwords.words('italian'))
+  xtra_stops = set(["c'è",'già','me'])
 
-wc = WordCloud(colormap="hot", max_words=100, 
-    stopwords=(stop_words | xtra_stops),width=1400, height=1400)
-wc.generate(allwords)
+  wc = WordCloud(colormap="hot", max_words=100, 
+      stopwords=(stop_words | xtra_stops),width=1400, height=1400)
+  wc.generate(allwords)
 #image_colors = ImageColorGenerator(image)
 
-# show the figure
-f = plt.figure(figsize=(1400,1400))
-fig, axes = plt.subplots(1, 2, gridspec_kw={'width_ratios': [100, 1]})
-axes[0].imshow(wc, interpolation="bilinear")
-for ax in axes:
-        ax.set_axis_off()
-st.pyplot(fig)
+  # show the figure
+  f = plt.figure(figsize=(1400,1400))
+  fig, axes = plt.subplots(1, 2, gridspec_kw={'width_ratios': [100, 1]})
+  axes[0].imshow(wc, interpolation="bilinear")
+  for ax in axes:
+          ax.set_axis_off()
+  st.pyplot(fig)
+
+
+### activities data
+fullFiltered
+
+from functools import reduce
+# from flatten_dict import flatten
+from pprint import pprint
+
+sezioni = [];
+attivita = [];
+for dataEl in dbdata:
+  for section, acts in activities.items():
+    if section in dataEl:
+      # sezioni.append([
+      #   section,*dataEl[section]['ambiti'].values()
+      # ])
+      newEl = dataEl[section]['ambiti']
+      newEl['section'] = section
+      sezioni.append(newEl)
+      for act in dataEl[section]['activities']:
+        # actData = flatten(dataEl[section]['activities'][act],reducer='dot')
+        actData = dataEl[section]['activities'][act]
+        actData['section'] = section
+        actData['activity'] = act
+        attivita.append(actData)
+        # attivita.append([section,act,*dataEl[section]['ambiti'].values(),*actData.values()]);
+
+attivitaDF = pd.json_normalize(attivita).fillna(0)
+sezioniDF = pd.json_normalize(sezioni).fillna(0).query("`ambito_provinciale`> 0 | `ambito_regionale`> 0 | `ambito_nazionale`> 0 | `ambito_internazionale`> 0")
+# print(activities.items)
+# sezioniDF
+# dai = sezioniDF.groupby('section')['section'].count()
+# dai
+# dai = sezioniDF.groupby('section')['ambito_provinciale'].mean()
+# dai
+SezioniDescribe = sezioniDF.groupby('section').agg(
+    {
+         'section':"count",
+         'ambito_provinciale': "mean",  
+         'ambito_regionale': 'mean',
+         'ambito_nazionale': "mean",  
+         'ambito_internazionale': 'mean'
+    })
+TotCol = SezioniDescribe['section'].sum()
+SezioniDescribe['section_perc'] = SezioniDescribe['section'] * 100/TotCol
+SezioniDescribe['ambito_tot_row'] = SezioniDescribe['ambito_provinciale'] + SezioniDescribe['ambito_nazionale'] + SezioniDescribe['ambito_internazionale'] + SezioniDescribe['ambito_provinciale']
+SezioniDescribe['ambito_provinciale_perc'] =  SezioniDescribe['ambito_provinciale'] * 100 *  SezioniDescribe['section']/ SezioniDescribe['ambito_tot_row'] 
+SezioniDescribe['ambito_regionale_perc'] =  SezioniDescribe['ambito_regionale'] * 100 *  SezioniDescribe['section'] / SezioniDescribe['ambito_tot_row'] 
+SezioniDescribe['ambito_nazionale_perc'] =  SezioniDescribe['ambito_nazionale'] * 100 *  SezioniDescribe['section'] / SezioniDescribe['ambito_tot_row'] 
+SezioniDescribe['ambito_internazionale_perc'] =  SezioniDescribe['ambito_internazionale'] * 100 *  SezioniDescribe['section']/ SezioniDescribe['ambito_tot_row'] 
+
+sun = SezioniDescribe[['section_perc','ambito_provinciale_perc']] #.melt(id_vars=['A'])
+
+
+#attivitaDF
+SezioniDescribe
+sun
