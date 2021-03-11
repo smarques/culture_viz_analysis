@@ -11,6 +11,9 @@ import altair as alt
 import plotly.express as px
 import nltk
 import wordcloud
+from functools import reduce
+# from flatten_dict import flatten
+from pprint import pprint
 
 #st.set_page_config(layout="wide")
 
@@ -123,6 +126,7 @@ def buildIndAssocQuery():
   return ' | '.join(q)
 
 AttivitaQuery = buildAttivitaQuery();
+
 if (len(AttivitaQuery) == 0):
   selectedAnagrafiche = anagrafiche
 else:
@@ -181,24 +185,12 @@ f.update_yaxes(title='No. di casi')
 st.plotly_chart(f)
 
 timeismoney = selectedAnagrafiche[['anagrafica.perc_tempo','anagrafica.perc_reddito','anagrafica.provincia']].fillna(0).astype({'anagrafica.perc_tempo':int,'anagrafica.perc_reddito':int,'anagrafica.provincia':str}).query('`anagrafica.perc_tempo` > 0')
-# timeismoney
-# c = alt.Chart(timeismoney).mark_circle().encode(
-#    x='anagrafica.perc_tempo', y='anagrafica.perc_reddito', size='anagrafica.perc_reddito', color='anagrafica.provincia', tooltip=['anagrafica.perc_tempo', 'anagrafica.perc_reddito', 'anagrafica.provincia'])
-# st.altair_chart(c, use_container_width=True)
-# st.vega_lite_chart(timeismoney, {
-#      'mark': {'type': 'circle', 'tooltip': True},
-#      'encoding': {
-#          'x': {'field': 'anagrafica.perc_tempo', 'type': 'quantitative'},
-#          'y': {'field': 'anagrafica.perc_reddito', 'type': 'quantitative'},
-#          'size': {'field': 'anagrafica.perc_reddito', 'type': 'quantitative'},
-#          'color': {'field': 'anagrafica.perc_tempo', 'type': 'quantitative'},
-#      }
-#  })
+
 
 fig = px.scatter(timeismoney, x="anagrafica.perc_tempo", y="anagrafica.perc_reddito", color="anagrafica.provincia")
 fig.update_xaxes(title='Percentuale Tempo Dedicato')
 fig.update_yaxes(title='Percentuale Reddito')
-st.plotly_chart(fig,use_container_width=True, title="pippo")
+st.plotly_chart(fig,use_container_width=True)
 
 # tempo = pd.to_numeric(selectedAnagrafiche['anagrafica.perc_tempo']).fillna(0)
 # tempo = tempo[tempo > 0].mean()
@@ -253,13 +245,13 @@ activities = {
     ],
     "supporto": [
         "Attrezzista",
-        "Doppiaggio",
+        #"Doppiaggio",
         "Effetti speciali",
         "Fornitura servizi museali",
         "Light designer",
         "Macchinista",
         "Montaggio",
-        "Restauro",
+       # "Restauro",
         "Rigger",
         "Servizi biglietteria",
         "Servizi ristorazione",
@@ -273,23 +265,29 @@ activities = {
 
 textCols = list(filter(lambda s: re.search('riflessioni',s), df.columns));
 
-AttivitaQuery = buildAttivitaQuery();
-if (len(AttivitaQuery) == 0):
-  fullFiltered = df
-else:
-  fullFiltered = df.query(AttivitaQuery)
+@st.cache
+def getFullFiltered(df):
+  AttivitaQuery = buildAttivitaQuery();
+  if (len(AttivitaQuery) == 0):
+    fullFiltered = df
+  else:
+    fullFiltered = df.query(AttivitaQuery)
 
-ProvinciaQuery = buildProvinciaQuery();
-if (len(ProvinciaQuery) > 0):
-  fullFiltered = fullFiltered.query(ProvinciaQuery)
+  ProvinciaQuery = buildProvinciaQuery();
+  if (len(ProvinciaQuery) > 0):
+    fullFiltered = fullFiltered.query(ProvinciaQuery)
 
-IndAssocQuery = buildIndAssocQuery();
-if (len(IndAssocQuery) > 0):
-  fullFiltered = fullFiltered.query(IndAssocQuery)
+  IndAssocQuery = buildIndAssocQuery();
+  if (len(IndAssocQuery) > 0):
+    fullFiltered = fullFiltered.query(IndAssocQuery)
+  
+  return fullFiltered
 
-ShowWordCloud = False;
 
-if (ShowWordCloud):
+fullFiltered = getFullFiltered(df);
+
+
+def buildWordCloud(AttivitaQuery,fullFiltered,textCols):
   wordcloudColumns =  list(filter(lambda s: re.search('['+AttivitaQuery+']',s), textCols));
 
   wordCloud = fullFiltered[wordcloudColumns].fillna('').copy()
@@ -300,8 +298,6 @@ if (ShowWordCloud):
   allwords = wordCloud['final'].str.cat(sep=' ')
 
   from nltk.corpus import stopwords
-  # from nltk.tokenize import word_tokenize
-  # from wordcloud import WordCloud
   from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 
 
@@ -319,62 +315,115 @@ if (ShowWordCloud):
   axes[0].imshow(wc, interpolation="bilinear")
   for ax in axes:
           ax.set_axis_off()
-  st.pyplot(fig)
+  return fig
+
+#st.pyplot(buildWordCloud(AttivitaQuery,fullFiltered,textCols))  #todo
 
 
 ### activities data
 fullFiltered
 
-from functools import reduce
-# from flatten_dict import flatten
-from pprint import pprint
+"""
+## COMPOSIZIONE DELLE ATTIVITA'
+"""
 
-sezioni = [];
-attivita = [];
-for dataEl in dbdata:
-  for section, acts in activities.items():
-    if section in dataEl:
-      # sezioni.append([
-      #   section,*dataEl[section]['ambiti'].values()
-      # ])
-      newEl = dataEl[section]['ambiti']
-      newEl['section'] = section
-      sezioni.append(newEl)
-      for act in dataEl[section]['activities']:
-        # actData = flatten(dataEl[section]['activities'][act],reducer='dot')
-        actData = dataEl[section]['activities'][act]
-        actData['section'] = section
-        actData['activity'] = act
-        attivita.append(actData)
-        # attivita.append([section,act,*dataEl[section]['ambiti'].values(),*actData.values()]);
+import plotly.graph_objects as go
 
-attivitaDF = pd.json_normalize(attivita).fillna(0)
-sezioniDF = pd.json_normalize(sezioni).fillna(0).query("`ambito_provinciale`> 0 | `ambito_regionale`> 0 | `ambito_nazionale`> 0 | `ambito_internazionale`> 0")
-# print(activities.items)
-# sezioniDF
-# dai = sezioniDF.groupby('section')['section'].count()
-# dai
-# dai = sezioniDF.groupby('section')['ambito_provinciale'].mean()
-# dai
-SezioniDescribe = sezioniDF.groupby('section').agg(
-    {
-         'section':"count",
-         'ambito_provinciale': "mean",  
-         'ambito_regionale': 'mean',
-         'ambito_nazionale': "mean",  
-         'ambito_internazionale': 'mean'
-    })
-TotCol = SezioniDescribe['section'].sum()
-SezioniDescribe['section_perc'] = SezioniDescribe['section'] * 100/TotCol
-SezioniDescribe['ambito_tot_row'] = SezioniDescribe['ambito_provinciale'] + SezioniDescribe['ambito_nazionale'] + SezioniDescribe['ambito_internazionale'] + SezioniDescribe['ambito_provinciale']
-SezioniDescribe['ambito_provinciale_perc'] =  SezioniDescribe['ambito_provinciale'] * 100 *  SezioniDescribe['section']/ SezioniDescribe['ambito_tot_row'] 
-SezioniDescribe['ambito_regionale_perc'] =  SezioniDescribe['ambito_regionale'] * 100 *  SezioniDescribe['section'] / SezioniDescribe['ambito_tot_row'] 
-SezioniDescribe['ambito_nazionale_perc'] =  SezioniDescribe['ambito_nazionale'] * 100 *  SezioniDescribe['section'] / SezioniDescribe['ambito_tot_row'] 
-SezioniDescribe['ambito_internazionale_perc'] =  SezioniDescribe['ambito_internazionale'] * 100 *  SezioniDescribe['section']/ SezioniDescribe['ambito_tot_row'] 
+@st.cache
+def plotSezioni():
+  labels = list(activities.keys())
+  sezioni = fullFiltered[labels].sum()
+  fig = go.Figure(data=[go.Pie(labels=labels, values=sezioni)])
+  return fig
 
-sun = SezioniDescribe[['section_perc','ambito_provinciale_perc']] #.melt(id_vars=['A'])
+#st.plotly_chart(plotSezioni(),use_container_width=True)
+def myIsNa(val):
+  return (str(val) == 'nan')
 
+def getCostiFromActivityRow(row, k):
+  keys = [n for n in row.keys() if n.startswith(k+'.costi')]
+  return {z.replace(k+'.costi.',''): row[z] for z in keys}
 
-#attivitaDF
-SezioniDescribe
-sun
+def getMisureFromActivityRow(row, k):
+  keys = [n for n in row.keys() if n.startswith(k+'.misure')]
+  return {z.replace(k+'.misure.',''): row[z] for z in keys}
+
+def getActivities(fullFiltered):
+  activitiesNorm = [];
+  for index, row in fullFiltered.iterrows():
+    for section, acts in activities.items():
+      for act in acts:
+        k = section + '.activities.' + act;
+        qR = k + '.quotaReddito'
+        myrow = row.to_dict()
+        if((k+'.riflessioni') in list(myrow.keys())):
+          riflessioni = myrow[k+'.riflessioni']
+        else:
+          riflessioni = ''
+        costi = getCostiFromActivityRow(myrow, k)
+        misure = getMisureFromActivityRow(myrow, k)
+        if(not(myIsNa(row[qR]))):
+          newRow = {
+            'role': section,
+            'activity': act,
+            'anagrafica.provincia': row['anagrafica.provincia'],
+            'anagrafica.ind_assoc': row['anagrafica.ind_assoc'],
+            'quotaReddito': row[qR],
+            'quotaTempo': row[k+'.quotaTempo'],
+            'fonti.servizi_settore_privato':  row[k+'.fonti.servizi_settore_privato'],
+            'fonti.servizi_settore_pubblico':  row[k+'.fonti.servizi_settore_pubblico'],
+            'fonti.contributi_settore_privato':  row[k+'.fonti.contributi_settore_privato'],
+            'fonti.contributi_settore_pubblico':  row[k+'.fonti.contributi_settore_pubblico'],
+            'fonti.autofinanziamento':  row[k+'.fonti.autofinanziamento'],
+            'fonti.diritti':  row[k+'.fonti.diritti'],
+            'reddito': row[k+'.reddito'],
+            'prospettive': row[k+'.prospettive'],
+            'riflessioni': riflessioni,
+            **costi,
+            **misure    
+          }
+          activitiesNorm.append(newRow)
+          
+  return pd.DataFrame(activitiesNorm)
+
+activitiesNorm = getActivities(fullFiltered)
+# fullFiltered.iloc[0]
+# raga = fullFiltered.iloc[0].to_dict().keys()
+activitiesNorm
+
+# sezioni = [];
+# attivita = [];
+# for dataEl in dbdata:
+#   for section, acts in activities.items():
+#     if section in dataEl:
+#       # sezioni.append([
+#       #   section,*dataEl[section]['ambiti'].values()
+#       # ])
+#       newEl = dataEl[section]['ambiti']
+#       newEl['section'] = section
+#       sezioni.append(newEl)
+#       for act in dataEl[section]['activities']:
+#         # actData = flatten(dataEl[section]['activities'][act],reducer='dot')
+#         actData = dataEl[section]['activities'][act]
+#         actData['anagrafica'] = dataEl['anagrafica']
+#         actData['section'] = section
+#         actData['activity'] = act
+#         attivita.append(actData)
+#         # attivita.append([section,act,*dataEl[section]['ambiti'].values(),*actData.values()]);
+
+# attivitaDF = pd.json_normalize(attivita).fillna(0)
+# attivitaDF
+
+# attivitaDF = pd.json_normalize(attivita).fillna(0)
+# sezioniDF = pd.json_normalize(sezioni).fillna(0).query("`ambito_provinciale`> 0 | `ambito_regionale`> 0 | `ambito_nazionale`> 0 | `ambito_internazionale`> 0")
+# sezioniDF['Sezione'] = sezioniDF['section']
+# sezioniDF.rename(columns={'section': 'compilazioni'}, inplace=True)
+# SezioniDescribe = sezioniDF.groupby('compilazioni').agg(
+#     {
+#          'compilazioni':"count",
+#          'ambito_provinciale': "mean",  
+#          'ambito_regionale': 'mean',
+#          'ambito_nazionale': "mean",  
+#          'ambito_internazionale': 'mean',
+#          'Sezione': 'first'
+#     }).copy()
