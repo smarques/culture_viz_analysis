@@ -10,3 +10,4 @@ plotly==4.14.3
 nltk==3.4.5
 plotly==4.14.3
 wordcloud==1.8.1
+flatten_dict==0.3.0
