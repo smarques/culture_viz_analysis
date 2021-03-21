@@ -12,7 +12,7 @@ import plotly.express as px
 import nltk
 import wordcloud
 from functools import reduce
-# from flatten_dict import flatten
+from flatten_dict import flatten
 from pprint import pprint
 from nltk.corpus import stopwords
 from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
@@ -90,9 +90,10 @@ def main():
   st.title('Visualising Culture')
   st.sidebar.title("Sezione")
   dfImmut = unwrangleMainDataFrame()
+
   #df = dfImmut.copy();
   df = deepcopy(dfImmut)
-  app_mode = st.sidebar.selectbox("",["Introduzione", "Anagrafiche", "Attività"])
+  app_mode = st.sidebar.selectbox("",[ "Anagrafiche", "Attività"]) #"Introduzione",
   if app_mode == "Introduzione":
     """
     ## Introduzione
@@ -125,6 +126,7 @@ def unwrangleMainDataFrame():
   possibleAreas = ['organizzazione','produzione','supporto','promozione','educazione']
   file_object =  open('data.json', 'r')
   dbdata = json.loads(file_object.read())
+
   df = pd.json_normalize(dbdata)
   df.drop('_id', axis =1, inplace = True)
 
@@ -286,15 +288,51 @@ def main_anagrafiche(df):
   
     
   def showAnagrafica(selectedAnagrafiche):
+
     cols = ['anagrafica.ind_assoc', 'anagrafica.provincia',
-          'anagrafica.formaGiuridica', 'anagrafica.titoloStudio',
+          'anagrafica.formaGiuridica', 'anagrafica.titoloStudio', 'anagrafica.mobilitati','anagrafica.dipendenti',
           'anagrafica.altro_lavoro', 'anagrafica.comune','anni_di_attivita','anagrafica.data']
     st_ms = st.multiselect("Scegli le colonne della tabella", cols, default=cols)
     selectedAnagrafiche.loc[:,st_ms]
 
+  def dipVsMod(selectedAnagrafiche):
+    dipVsMob = selectedAnagrafiche.fillna(0).astype({'anagrafica.mobilitati':int,'anagrafica.dipendenti':int,'anagrafica.provincia':str})
+    dipVsMobLargest_value = dipVsMob['anagrafica.mobilitati'].max()
+    dipVsMobMax=100
+    dipVsMobBins =list(range(0,10, 1)) + list(range(10,dipVsMobMax, 10)) + [dipVsMobLargest_value]
+    histMob = np.histogram(dipVsMob['anagrafica.mobilitati'], bins=dipVsMobBins)
+    histDip = np.histogram(dipVsMob['anagrafica.dipendenti'], bins=dipVsMobBins)
+    labels = []
+    for i, j in zip(histMob[1][0::1], histMob[1][1::1]):
+        if j <= 10:
+            labels.append('{}'.format(i))
+        elif j <= dipVsMobMax:
+            labels.append('{}-{}'.format(i, j))
+        else:
+            labels.append('> {}'.format(i))
+    data = [go.Bar(x=labels, y=histMob[0],name="Mobilitati"),go.Bar(x=labels, y=histDip[0],name="Dipendenti")]
+
+    layout = go.Layout(
+        title="Mobilitati vs Dipendenti"
+    )
+    fig = go.Figure(data=data, layout=layout)
+    st.plotly_chart(fig)
+
+  def anagraficheTempoReddito(selectedAnagrafiche):
+    timeismoney = selectedAnagrafiche[['anagrafica.perc_tempo','anagrafica.perc_reddito','anagrafica.provincia']].fillna(0).astype({'anagrafica.perc_tempo':int,'anagrafica.perc_reddito':int,'anagrafica.provincia':str}).query('`anagrafica.perc_tempo` > 0')
+    f = px.scatter(timeismoney, x="anagrafica.perc_tempo", y="anagrafica.perc_reddito", color="anagrafica.provincia",height=400)
+    f.update_xaxes(title='Percentuale Tempo Dedicato')
+    f.update_yaxes(title='Percentuale Reddito')
+    st.plotly_chart(f)
+
   def anagraficaCharts(selectedAnagrafiche):
     f = px.histogram(selectedAnagrafiche, x='anagrafica.provincia', title='Compilazioni per provincia')
     f.update_xaxes(title='Provincia')
+    f.update_yaxes(title='No. di compilazioni',range=[0, 100])
+    st.plotly_chart(f)
+
+    f = px.histogram(selectedAnagrafiche.query('`anagrafica.comune` == "Vicenza" | `anagrafica.comune` == "Padova" | `anagrafica.comune` == "Venezia" | `anagrafica.comune` == "Rovigo" | `anagrafica.comune` == "Treviso" | `anagrafica.comune` == "Belluno"'), x='anagrafica.comune', title='Compilazioni per capoluogo')
+    f.update_xaxes(title='Capoluogo')
     f.update_yaxes(title='No. di compilazioni',range=[0, 100])
     st.plotly_chart(f)
 
@@ -323,11 +361,9 @@ def main_anagrafiche(df):
     f.update_yaxes(title='No. di casi')
     st.plotly_chart(f)
 
-    timeismoney = selectedAnagrafiche[['anagrafica.perc_tempo','anagrafica.perc_reddito','anagrafica.provincia']].fillna(0).astype({'anagrafica.perc_tempo':int,'anagrafica.perc_reddito':int,'anagrafica.provincia':str}).query('`anagrafica.perc_tempo` > 0')
-    fig = px.scatter(timeismoney, x="anagrafica.perc_tempo", y="anagrafica.perc_reddito", color="anagrafica.provincia")
-    fig.update_xaxes(title='Percentuale Tempo Dedicato')
-    fig.update_yaxes(title='Percentuale Reddito')
-    st.plotly_chart(fig,use_container_width=True)
+    anagraficheTempoReddito(selectedAnagrafiche)
+
+    dipVsMod(selectedAnagrafiche)
 
   def anagraficaWordCloud(df,fullFiltered,attivitaFilters):
     textCols = list(filter(lambda s: re.search('riflessioni',s), df.columns));
@@ -364,7 +400,7 @@ def main_anagrafiche(df):
   ## Anagrafica
   """
   anagrafiche = df.loc[:,['anagrafica.ind_assoc', 'anagrafica.provincia','anagrafica.data',
-        'anagrafica.formaGiuridica', 'anagrafica.titoloStudio',
+        'anagrafica.formaGiuridica', 'anagrafica.titoloStudio','anagrafica.mobilitati','anagrafica.dipendenti',
         'anagrafica.altro_lavoro', 'anagrafica.comune','anni_di_attivita','anagrafica.perc_reddito','anagrafica.perc_tempo',
         'organizzazione', 'produzione', 'supporto', 'promozione', 'educazione']]
 
@@ -391,6 +427,7 @@ def main_attivita(df):
   ## COMPOSIZIONE DELLE ATTIVITA'
   """
   st.plotly_chart(plotSezioniAttivita(fullFiltered),use_container_width=True)
+  attivitaNonCompilate(fullFiltered)
   """
   ## REDDITO PER SETTORE
   """
@@ -399,12 +436,33 @@ def main_attivita(df):
   ## REDDITO PER ATTIVITA'
   """
   st.plotly_chart(plotRedditiPerAttivita(fullFiltered),use_container_width=True)
+  """
+  ## FONTI PER SETTORE
+  """
+  st.plotly_chart(plotFontiPerSettore(fullFiltered))
+  """
+  ## FONTI PER ATTIVITA'
+  """
+  st.plotly_chart(plotFontiPerAttivita(fullFiltered),use_container_width=True)
+  """
+  ## ASPETTATIVE PER SETTORE
+  """
+  st.plotly_chart(plotAspettativePerSettore(fullFiltered))
+  """
+  ## ASPETTATIVE PER ATTIVITA'
+  """
+  st.plotly_chart(plotAspettativePerAttivita(fullFiltered))
 
 
  
   ## activities data
 
+#@st.cache
+def attivitaNonCompilate(fullFiltered):
+  compilate = getCountsByAct(fullFiltered)
+  compilate
 
+      
 @st.cache 
 def getActivities(fullFiltered):
   activitiesNorm = [];
@@ -444,11 +502,16 @@ def getActivities(fullFiltered):
           
   return pd.DataFrame(activitiesNorm)
 
+def getCountsByAct(fullFiltered):
+  ret = fullFiltered.groupby(['role','activity'])['anagrafica.provincia'].count().reset_index()
+  ret['compilazioni'] = ret['anagrafica.provincia']
+  return ret.drop('anagrafica.provincia', axis=1)
+
 def plotSezioniAttivita(fullFiltered):
-  sezAtt = fullFiltered.groupby(['role','activity'])['anagrafica.provincia'].count().reset_index()
-  tot = sezAtt['anagrafica.provincia'].sum()
-  sezAtt['compilazioni'] = round(sezAtt['anagrafica.provincia'] * 100 * 100/ tot) / 100
-  fig = px.sunburst(sezAtt, path=['role', 'activity'], values='compilazioni',
+  sezAtt = getCountsByAct(fullFiltered)
+  tot = sezAtt['compilazioni'].sum()
+  sezAtt['compilazioni_perc'] = round(sezAtt['compilazioni'] * 100 * 100/ tot) / 100
+  fig = px.sunburst(sezAtt, path=['role', 'activity'], values='compilazioni_perc',
                   #color='lifeExp', 
                  
                   # textinfo='label+percent entry',
@@ -483,6 +546,14 @@ def plotRedditiPerSettore(df):
   barmode="group")
   return fig
 
+def plotFontiPerSettore(df):
+  fontiCols = list(filter(lambda s: re.search('fonti\..*',s), df.columns));
+  fonti = df.groupby(['role'])[fontiCols].mean().reset_index()
+  #fonti
+  fig = px.bar(fonti, x="role", y=fontiCols  )
+  return fig
+ 
+
 def plotRedditiPerAttivita(df):
  
   reddit2 = df.groupby(['role','activity','reddito']).agg({"anagrafica.provincia" : "count"}).groupby(level=1).apply(lambda x: 100*x/x.sum()).reset_index()
@@ -503,5 +574,67 @@ def plotRedditiPerAttivita(df):
 
   return fig2
   # st.pyplot(g)
+
+def plotFontiPerAttivita(df):
+  fontiCols = list(filter(lambda s: re.search('fonti\..*',s), df.columns));
+  # labs = {}
+  # for c in fontiCols:
+  #   labs[c] = c.replace('fonti.','')
+
+  fonti = df.groupby(['role','activity'])[fontiCols].mean().reset_index().melt(id_vars=['role','activity'], value_vars=fontiCols)
+  fonti['variable'] = fonti['variable'].str.replace('fonti.','')
+  fonti['variable'] = fonti['variable'].str.replace('_',' ')
+  fig2 = px.histogram(fonti, x="variable", y="value", color="variable", facet_col="activity",facet_col_wrap=4, 
+  labels={'variable':'Fonte'}, 
+  facet_row_spacing=0.05,facet_col_spacing=0.02,
+  #category_orders={"reddito":["reddito_0_10000","reddito_10001_20000","reddito_20001_30000","reddito_30001_50000","reddito_50000_"]},
+  #barmode="group"
+  height=2000
+  )
+  #fig2.update_layout(showlegend=False)
+  fig2.update_layout(legend=dict(
+    yanchor="top",
+    y=-0.1,
+    xanchor="left",
+    x=0
+  ))
+  for axis in fig2.layout:
+    if type(fig2.layout[axis]) == go.layout.YAxis:
+        fig2.layout[axis].title.text = ''
+    if type(fig2.layout[axis]) == go.layout.XAxis:
+        fig2.layout[axis].title.text = ''
+
+  fig2.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1].replace(' / ',",")[0:15]+'...'))
+  
+  return fig2
+
+def plotAspettativePerSettore(df):
+  reddit = df.groupby(['role','activity','prospettive'])['anagrafica.provincia'].count().reset_index()
+  tot = reddit['anagrafica.provincia'].sum()
+  reddit['perc'] = reddit['anagrafica.provincia'] / tot
+  fig = px.histogram(reddit, x="prospettive", y="perc", color="role", 
+  category_orders={"prospettive":["catastrofe","paludosa","tristina","tengo_botta","ok","alla_grande"]},
+  barmode="group")
+  return fig
+
+def plotAspettativePerAttivita(df):
+ 
+  reddit2 = df.groupby(['role','activity','prospettive']).agg({"anagrafica.provincia" : "count"}).groupby(level=1).apply(lambda x: 100*x/x.sum()).reset_index()
+  reddit2['perc'] = reddit2['anagrafica.provincia'] 
+  #reddit2
+
+
+  fig2 = px.histogram(reddit2, x="prospettive", y="perc", color="role", facet_col="activity",facet_col_wrap=4, facet_row_spacing=0.05,facet_col_spacing=0.02,
+  category_orders={"prospettive":["catastrofe","paludosa","tristina","tengo_botta","ok","alla_grande"]},
+  #barmode="group"
+  height=2000
+  )
+  fig2.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1].replace(' / ',",")[0:15]+'...'))
+  # dfz = px.data.tips()
+  # dfz
+  # fig2 = px.histogram(dfz, x="total_bill", y="tip", color="sex", facet_row="time", facet_col="day",
+  #      category_orders={"day": ["Thur", "Fri", "Sat", "Sun"], "time": ["Lunch", "Dinner"]})
+
+  return fig2
 
 main()
