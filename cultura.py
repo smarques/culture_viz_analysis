@@ -320,7 +320,7 @@ def main_anagrafiche(df):
 
   def anagraficheTempoReddito(selectedAnagrafiche):
     timeismoney = selectedAnagrafiche[['anagrafica.perc_tempo','anagrafica.perc_reddito','anagrafica.provincia']].fillna(0).astype({'anagrafica.perc_tempo':int,'anagrafica.perc_reddito':int,'anagrafica.provincia':str}).query('`anagrafica.perc_tempo` > 0')
-    f = px.scatter(timeismoney, x="anagrafica.perc_tempo", y="anagrafica.perc_reddito", color="anagrafica.provincia",height=400)
+    f = px.scatter(timeismoney, x="anagrafica.perc_tempo", y="anagrafica.perc_reddito",height=400)
     f.update_xaxes(title='Percentuale Tempo Dedicato')
     f.update_yaxes(title='Percentuale Reddito')
     st.plotly_chart(f)
@@ -336,27 +336,27 @@ def main_anagrafiche(df):
     f.update_yaxes(title='No. di compilazioni',range=[0, 100])
     st.plotly_chart(f)
 
-    f2 = px.histogram(selectedAnagrafiche, x='anni_di_attivita', title='Anni Di Attività', color="anagrafica.provincia")
+    f2 = px.histogram(selectedAnagrafiche, x='anni_di_attivita', title='Anni Di Attività')
     f2.update_xaxes(title='Anni Di Attività',range=[0, 110])
     f2.update_yaxes(title='No. di casi',range=[0, 50])
     st.plotly_chart(f2)
 
-    f = px.histogram(selectedAnagrafiche, x='anagrafica.ind_assoc', title='Individuo vs Associazione',color="anagrafica.provincia")
+    f = px.histogram(selectedAnagrafiche, x='anagrafica.ind_assoc', title='Individuo vs Associazione')
     f.update_xaxes(title='Ind vs Assoc')
     f.update_yaxes(title='No. di casi',range=[0, 250])
     st.plotly_chart(f)
 
-    f = px.histogram(selectedAnagrafiche, x='anagrafica.formaGiuridica', title='Forma Giuridica',color="anagrafica.provincia")
+    f = px.histogram(selectedAnagrafiche, x='anagrafica.formaGiuridica', title='Forma Giuridica')
     f.update_xaxes(title='Forma Giuridica')
     f.update_yaxes(title='No. di casi',range=[0, 110])
     st.plotly_chart(f)
 
-    f = px.histogram(selectedAnagrafiche, x='anagrafica.titoloStudio', title='Titolo di Studio',color="anagrafica.provincia")
+    f = px.histogram(selectedAnagrafiche, x='anagrafica.titoloStudio', title='Titolo di Studio')
     f.update_xaxes(title='Titolo di Studio')
     f.update_yaxes(title='No. di casi',range=[0, 150])
     st.plotly_chart(f)
 
-    f = px.histogram(selectedAnagrafiche, x='anagrafica.altro_lavoro', title='Altra Occupazione',color="anagrafica.provincia")
+    f = px.histogram(selectedAnagrafiche, x='anagrafica.altro_lavoro', title='Altra Occupazione')
     f.update_xaxes(title='Altra Occupazione')
     f.update_yaxes(title='No. di casi')
     st.plotly_chart(f)
