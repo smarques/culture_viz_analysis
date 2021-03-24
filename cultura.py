@@ -298,6 +298,7 @@ def main_anagrafiche(df):
   def dipVsMod(selectedAnagrafiche):
     dipVsMob = selectedAnagrafiche.fillna(0).astype({'anagrafica.mobilitati':int,'anagrafica.dipendenti':int,'anagrafica.provincia':str})
     dipVsMobLargest_value = dipVsMob['anagrafica.mobilitati'].max()
+    totrecs = dipVsMob['anagrafica.mobilitati'].count()
     dipVsMobMax=100
     dipVsMobBins =list(range(0,10, 1)) + list(range(10,dipVsMobMax, 10)) + [dipVsMobLargest_value]
     histMob = np.histogram(dipVsMob['anagrafica.mobilitati'], bins=dipVsMobBins)
@@ -310,7 +311,7 @@ def main_anagrafiche(df):
             labels.append('{}-{}'.format(i, j))
         else:
             labels.append('> {}'.format(i))
-    data = [go.Bar(x=labels, y=histMob[0],name="Mobilitati"),go.Bar(x=labels, y=histDip[0],name="Dipendenti")]
+    data = [go.Bar(x=labels, y=histMob[0]*100/totrecs,name="Mobilitati"),go.Bar(x=labels, y=histDip[0]*100/totrecs,name="Dipendenti")]
 
     layout = go.Layout(
         title="Mobilitati vs Dipendenti"
@@ -326,39 +327,39 @@ def main_anagrafiche(df):
     st.plotly_chart(f)
 
   def anagraficaCharts(selectedAnagrafiche):
-    f = px.histogram(selectedAnagrafiche, x='anagrafica.provincia', title='Compilazioni per provincia')
+    f = px.histogram(selectedAnagrafiche, x='anagrafica.provincia', title='Compilazioni per provincia',histnorm='percent')
     f.update_xaxes(title='Provincia')
-    f.update_yaxes(title='No. di compilazioni',range=[0, 100])
+    f.update_yaxes(title='% di compilazioni',range=[0, 40])
     st.plotly_chart(f)
 
-    f = px.histogram(selectedAnagrafiche.query('`anagrafica.comune` == "Vicenza" | `anagrafica.comune` == "Padova" | `anagrafica.comune` == "Venezia" | `anagrafica.comune` == "Rovigo" | `anagrafica.comune` == "Treviso" | `anagrafica.comune` == "Belluno"'), x='anagrafica.comune', title='Compilazioni per capoluogo')
+    f = px.histogram(selectedAnagrafiche.query('`anagrafica.comune` == "Vicenza" | `anagrafica.comune` == "Padova" | `anagrafica.comune` == "Venezia" | `anagrafica.comune` == "Rovigo" | `anagrafica.comune` == "Treviso" | `anagrafica.comune` == "Belluno"'), x='anagrafica.comune', histnorm='percent',title='Compilazioni per capoluogo')
     f.update_xaxes(title='Capoluogo')
-    f.update_yaxes(title='No. di compilazioni',range=[0, 100])
+    f.update_yaxes(title='% di compilazioni',range=[0, 100])
     st.plotly_chart(f)
 
-    f2 = px.histogram(selectedAnagrafiche, x='anni_di_attivita', title='Anni Di Attività')
+    f2 = px.histogram(selectedAnagrafiche, x='anni_di_attivita', title='Anni Di Attività',histnorm='percent')
     f2.update_xaxes(title='Anni Di Attività',range=[0, 110])
-    f2.update_yaxes(title='No. di casi',range=[0, 50])
+    f2.update_yaxes(title='% di casi',range=[0, 20])
     st.plotly_chart(f2)
 
-    f = px.histogram(selectedAnagrafiche, x='anagrafica.ind_assoc', title='Individuo vs Associazione')
+    f = px.histogram(selectedAnagrafiche, x='anagrafica.ind_assoc', title='Individuo vs Associazione',histnorm='percent')
     f.update_xaxes(title='Ind vs Assoc')
-    f.update_yaxes(title='No. di casi',range=[0, 250])
+    f.update_yaxes(title='% di casi',range=[0, 80])
     st.plotly_chart(f)
 
-    f = px.histogram(selectedAnagrafiche, x='anagrafica.formaGiuridica', title='Forma Giuridica')
+    f = px.histogram(selectedAnagrafiche, x='anagrafica.formaGiuridica', title='Forma Giuridica',histnorm='percent')
     f.update_xaxes(title='Forma Giuridica')
-    f.update_yaxes(title='No. di casi',range=[0, 110])
+    f.update_yaxes(title='% di casi',range=[0, 30])
     st.plotly_chart(f)
 
-    f = px.histogram(selectedAnagrafiche, x='anagrafica.titoloStudio', title='Titolo di Studio')
+    f = px.histogram(selectedAnagrafiche, x='anagrafica.titoloStudio', title='Titolo di Studio',histnorm='percent')
     f.update_xaxes(title='Titolo di Studio')
-    f.update_yaxes(title='No. di casi',range=[0, 150])
+    f.update_yaxes(title='% di casi',range=[0, 150])
     st.plotly_chart(f)
 
-    f = px.histogram(selectedAnagrafiche, x='anagrafica.altro_lavoro', title='Altra Occupazione')
+    f = px.histogram(selectedAnagrafiche, x='anagrafica.altro_lavoro', title='Altra Occupazione',histnorm='percent')
     f.update_xaxes(title='Altra Occupazione')
-    f.update_yaxes(title='No. di casi')
+    f.update_yaxes(title='% di casi')
     st.plotly_chart(f)
 
     anagraficheTempoReddito(selectedAnagrafiche)
