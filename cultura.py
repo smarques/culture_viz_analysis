@@ -455,6 +455,7 @@ def main_attivita(df):
   st.plotly_chart(plotAspettativePerAttivita(fullFiltered))
   """
   ## 2019 vs 2020 
+  ### Variazione media su indicatori quantitativi di attività
   """
   st.plotly_chart(plot2019vs2020(fullFiltered))
 
