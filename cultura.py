@@ -453,6 +453,10 @@ def main_attivita(df):
   ## ASPETTATIVE PER ATTIVITA'
   """
   st.plotly_chart(plotAspettativePerAttivita(fullFiltered))
+  """
+  ## 2019 vs 2020 
+  """
+  st.plotly_chart(plot2019vs2020(fullFiltered))
 
 
  
@@ -638,4 +642,37 @@ def plotAspettativePerAttivita(df):
 
   return fig2
 
+def plot2019vs2020(df):
+  fields = list(filter(lambda s: re.search('2020$',s), df.columns));
+  hor = pd.melt(df, id_vars=['role','activity'], value_vars=fields,ignore_index=False,value_name='valore')
+  # ok = hor[hor['valore'].isna()]
+  # ok = hor.astype({'valore': String })
+  
+
+  hor.replace('', np.nan, inplace=True)
+  k = hor[pd.notna(hor['valore'])]
+  k['valore'] = k['valore'].astype(float)
+  k['2019'] = 100;
+  # k = k.assign(End = lambda x: (100+ x.valore) if x.valore < 0 else x)
+  # k['end'] = k['valore'].where(k['valore']<0, k['valore'] + 100);
+  k['2020'] = k['valore'].apply(lambda x: x * 100 if abs(x) < 1 else x)
+  k['2020'] = k['2020'].apply(lambda x: x+100 if x < 0 else x)
+  k = k[k['2020'] >= 0]
+  k = k[k['2020'] <= 200]
+  k['variable'] = k['activity']+':'+k['variable']
+  k2 = pd.melt(k, id_vars=['role','variable'], value_vars=['2019','2020'], ignore_index=False, var_name='anno',value_name='valore')
+  k2['anno'].apply(int)
+  k3 = k2.groupby(['role','variable','anno']).agg({"valore" : "mean"}).reset_index()
+
+  fig = px.line(k3, x="anno", y="valore", color="variable",
+               line_group="variable",
+               hover_name="variable",
+               height=900)
+  fig.update_layout(legend=dict(
+    yanchor="top",
+    y=-0.3,
+    xanchor="left",
+    x=0
+  ))
+  return fig
 main()
