@@ -237,7 +237,7 @@ def buildIndAssocQuery(indAssocFilters):
 
 def addFiltersToSidebar():
   global attivitaFilters,provinciaFilters,indAssocFilters
-  st.sidebar.markdown("## Attività")
+  st.sidebar.markdown("## Settori")
   attivitaFilters = {
     "organizzazione_cb" : st.sidebar.checkbox('Organizzazione', True),
     "produzione_cb" : st.sidebar.checkbox('Produzione', True),
