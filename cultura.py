@@ -93,7 +93,7 @@ def main():
 
   #df = dfImmut.copy();
   df = deepcopy(dfImmut)
-  app_mode = st.sidebar.selectbox("",[ "Anagrafiche", "Attività"]) #"Introduzione",
+  app_mode = st.sidebar.selectbox("",[ "Anagrafiche", "Attività", "Presentazione"]) #"Introduzione",
   if app_mode == "Introduzione":
     """
     ## Introduzione
@@ -101,6 +101,8 @@ def main():
     st.sidebar.success('Coming Soon')
   elif app_mode == "Anagrafiche":
     main_anagrafiche(df)
+  elif app_mode == "Presentazione":
+    main_presentazione(df)
   elif app_mode == "Attività":
     main_attivita(df)
 
@@ -490,6 +492,7 @@ def getActivities(fullFiltered):
             'activity': act,
             'anagrafica.provincia': row['anagrafica.provincia'],
             'anagrafica.ind_assoc': row['anagrafica.ind_assoc'],
+            'anagrafica.altro_lavoro': row['anagrafica.altro_lavoro'],
             'quotaReddito': row[qR],
             'quotaTempo': row[k+'.quotaTempo'],
             'fonti.servizi_settore_privato':  row[k+'.fonti.servizi_settore_privato'],
@@ -543,11 +546,11 @@ def getMisureFromActivityRow(row, k):
   keys = [n for n in row.keys() if n.startswith(k+'.misure')]
   return {z.replace(k+'.misure.',''): row[z] for z in keys}
 
-def plotRedditiPerSettore(df):
+def plotRedditiPerSettore(df, template, colors):
   reddit = df.groupby(['role','activity','reddito'])['anagrafica.provincia'].count().reset_index()
   tot = reddit['anagrafica.provincia'].sum()
   reddit['perc'] = reddit['anagrafica.provincia'] / tot
-  fig = px.histogram(reddit, x="reddito", y="perc", color="role", 
+  fig = px.histogram(reddit, x="reddito", y="perc", color="role", template=template, color_discrete_sequence= colors,
   category_orders={"reddito":["reddito_0_10000","reddito_10001_20000","reddito_20001_30000","reddito_30001_50000","reddito_50000_"]},
   barmode="group")
   return fig
@@ -676,4 +679,57 @@ def plot2019vs2020(df):
     x=0
   ))
   return fig
+
+def main_presentazione(df):
+  normalizedActivities = deepcopy(getActivities(df));
+  st.sidebar.markdown('<style>a.toc-link{text-decoration:none;color:black;padding-left:20px;font-weight:bold;}</style>', unsafe_allow_html=True)
+  st.sidebar.markdown('<a class="toc-link" href="#top7">7 attività principali</a>', unsafe_allow_html=True)  
+  st.sidebar.markdown('<a class="toc-link" href="#lavoro">Fai anche un altro lavoro?</a>', unsafe_allow_html=True) 
+  st.sidebar.markdown('<a class="toc-link" href="#reddito">Fascia di reddito</a>', unsafe_allow_html=True) 
+  top7 = get_top7(normalizedActivities)
+  st.markdown('<a name="top7"></a>', unsafe_allow_html=True)  
+  """
+  ## Top 7
+  """
+  # top7['activity']
+  fig = px.pie(top7, values='totale', names='activity', title='Le 7 attività principali',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  st.plotly_chart(fig)
+  top7Activities = getTop7Activities(normalizedActivities, top7['activity'])
+  # top7Activities['totale'] = top7Activities['anagrafica.provincia']
+  st.markdown('<a name="lavoro"></a>', unsafe_allow_html=True)  
+  """
+  ## Fai anche un altro lavoro?
+  """
+  lavuro = top7Activities.groupby(['anagrafica.altro_lavoro']).agg({"totale" : "count"}).reset_index()
+  fig = px.pie(lavuro, values='totale', names='anagrafica.altro_lavoro', title='Fai anche un altro lavoro?',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  st.plotly_chart(fig)
+
+  for act in top7['activity']:
+    lavuro = top7Activities[top7Activities['activity']==act].groupby(['anagrafica.altro_lavoro']).agg({"totale" : "count"}).reset_index()
+    f = px.pie(lavuro, values='totale', names='anagrafica.altro_lavoro', title='Altro lavoro?\n('+act+')',color_discrete_sequence= px.colors.sequential.Plasma_r)
+    st.plotly_chart(f)
+  
+  st.markdown('<a name="reddito"></a>', unsafe_allow_html=True)  
+  """
+  ## Fascia di reddito
+  """
+  st.plotly_chart(plotRedditiPerSettore(top7Activities,"plotly_dark",px.colors.sequential.Plasma_r))
+  for act in top7['activity']:
+    st.markdown("## "+act+": Reddito")
+    reddit = top7Activities[top7Activities['activity']==act]
+    p2 = reddit.groupby(['role','activity','reddito'])['totale'].count().reset_index()
+    f = px.pie(p2, values='totale', names='reddito', color_discrete_sequence= px.colors.sequential.Plasma_r)
+    st.plotly_chart(f)
+    
+
+def get_top7(normalizedActivities):
+  k3 = normalizedActivities.groupby(['role','activity']).agg({"anagrafica.provincia" : "count"}).reset_index()
+  k3['totale'] = k3['anagrafica.provincia']
+  k3.sort_values(by=['totale'], inplace=True, ascending=False)
+  return k3.head(7).reset_index()
+
+def getTop7Activities(normalizedActivities, top7):
+  normalizedActivities['totale'] = normalizedActivities['anagrafica.provincia']
+  return normalizedActivities[normalizedActivities['activity'].isin(top7)]
+
 main()
