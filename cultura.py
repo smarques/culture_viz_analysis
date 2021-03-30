@@ -546,14 +546,16 @@ def getMisureFromActivityRow(row, k):
   keys = [n for n in row.keys() if n.startswith(k+'.misure')]
   return {z.replace(k+'.misure.',''): row[z] for z in keys}
 
-def plotRedditiPerSettore(df, template, colors):
+def plotRedditiPerSettore(df, template, colors, col = "role"):
   reddit = df.groupby(['role','activity','reddito'])['anagrafica.provincia'].count().reset_index()
   tot = reddit['anagrafica.provincia'].sum()
   reddit['perc'] = reddit['anagrafica.provincia'] / tot
-  fig = px.histogram(reddit, x="reddito", y="perc", color="role", template=template, color_discrete_sequence= colors,
+  fig = px.histogram(reddit, x="reddito", y="perc", color=col, template=template, color_discrete_sequence= colors,
   category_orders={"reddito":["reddito_0_10000","reddito_10001_20000","reddito_20001_30000","reddito_30001_50000","reddito_50000_"]},
   barmode="group")
   return fig
+
+
 
 def plotFontiPerSettore(df):
   fontiCols = list(filter(lambda s: re.search('fonti\..*',s), df.columns));
@@ -682,10 +684,49 @@ def plot2019vs2020(df):
 
 def main_presentazione(df):
   normalizedActivities = deepcopy(getActivities(df));
+  normalizedActivities['totale'] = normalizedActivities['anagrafica.provincia']
   st.sidebar.markdown('<style>a.toc-link{text-decoration:none;color:black;padding-left:20px;font-weight:bold;}</style>', unsafe_allow_html=True)
+  st.sidebar.markdown('<a class="toc-link" href="#prov">Compilazioni per provincia</a>', unsafe_allow_html=True)  
+  st.sidebar.markdown('<a class="toc-link" href="#prov_att">Struttura provincia/attività</a>', unsafe_allow_html=True) 
+  st.sidebar.markdown('<a class="toc-link" href="#sett">Compilazioni per settore</a>', unsafe_allow_html=True) 
+  st.sidebar.markdown('<a class="toc-link" href="#role_att">Struttura settori/attività</a>', unsafe_allow_html=True) 
   st.sidebar.markdown('<a class="toc-link" href="#top7">7 attività principali</a>', unsafe_allow_html=True)  
   st.sidebar.markdown('<a class="toc-link" href="#lavoro">Fai anche un altro lavoro?</a>', unsafe_allow_html=True) 
   st.sidebar.markdown('<a class="toc-link" href="#reddito">Fascia di reddito</a>', unsafe_allow_html=True) 
+  st.sidebar.markdown('<a class="toc-link" href="#indicatori">Indicatori 2019 vs 2020</a>', unsafe_allow_html=True) 
+  
+  st.markdown('<a  name="prov"></a>', unsafe_allow_html=True)  
+  """
+  ## Totale compilazioni per provincia
+  """
+  provv = normalizedActivities.groupby(['anagrafica.provincia']).agg({"totale" : "count"}).reset_index()
+  fig = px.pie(provv, values='totale', names='anagrafica.provincia', title='Compilazioni per provincia',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  st.plotly_chart(fig)
+
+  st.markdown('<a  name="prov_att"></a>', unsafe_allow_html=True)  
+  """
+  ## Struttura per province e attività
+  """
+  roleatt = normalizedActivities.groupby(['anagrafica.provincia','activity']).agg({"totale" : "count"}).reset_index()
+  fig = px.treemap(roleatt, title="Settori e Attività", path=['anagrafica.provincia', 'activity'], color='activity',values='totale',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  st.plotly_chart(fig)
+
+  st.markdown('<a  name="sett"></a>', unsafe_allow_html=True)  
+  """
+  ## Totale compilazioni per settore
+  """
+  sect = normalizedActivities.groupby(['role']).agg({"totale" : "count"}).reset_index()
+  fig = px.pie(sect, values='totale', names='role', title='Compilazioni per settore',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  st.plotly_chart(fig)
+
+  st.markdown('<a  name="role_att"></a>', unsafe_allow_html=True)  
+  """
+  ## Struttura per settori e attività
+  """
+  roleatt = normalizedActivities.groupby(['role','activity']).agg({"totale" : "count"}).reset_index()
+  fig = px.treemap(roleatt, title="Settori e Attività", path=['role', 'activity'], color='activity',values='totale',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  st.plotly_chart(fig)
+ 
   top7 = get_top7(normalizedActivities)
   st.markdown('<a name="top7"></a>', unsafe_allow_html=True)  
   """
@@ -700,8 +741,8 @@ def main_presentazione(df):
   """
   ## Fai anche un altro lavoro?
   """
-  lavuro = top7Activities.groupby(['anagrafica.altro_lavoro']).agg({"totale" : "count"}).reset_index()
-  fig = px.pie(lavuro, values='totale', names='anagrafica.altro_lavoro', title='Fai anche un altro lavoro?',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  lavuro = normalizedActivities.groupby(['anagrafica.altro_lavoro']).agg({"totale" : "count"}).reset_index()
+  fig = px.pie(lavuro, values='totale', names='anagrafica.altro_lavoro', title='Fai anche un altro lavoro? DATI AGGREGATI',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
   st.plotly_chart(fig)
 
   for act in top7['activity']:
@@ -713,13 +754,21 @@ def main_presentazione(df):
   """
   ## Fascia di reddito
   """
-  st.plotly_chart(plotRedditiPerSettore(top7Activities,"plotly_dark",px.colors.sequential.Plasma_r))
+  st.markdown("### Dati aggregati: Reddito")
+  st.plotly_chart(plotRedditiPerSettore(normalizedActivities,"plotly_dark",px.colors.sequential.Plasma_r))
   for act in top7['activity']:
-    st.markdown("## "+act+": Reddito")
+    st.markdown("### "+act+": Reddito")
     reddit = top7Activities[top7Activities['activity']==act]
     p2 = reddit.groupby(['role','activity','reddito'])['totale'].count().reset_index()
     f = px.pie(p2, values='totale', names='reddito', color_discrete_sequence= px.colors.sequential.Plasma_r)
     st.plotly_chart(f)
+  
+  st.markdown('<a name="indicatori"></a>', unsafe_allow_html=True)  
+  """
+  ## Andamento degli indicatori 2019 vs 2020
+  ### per le 7 attività principali
+  """
+  st.plotly_chart(plot2019vs2020(top7Activities))
     
 
 def get_top7(normalizedActivities):
@@ -729,7 +778,6 @@ def get_top7(normalizedActivities):
   return k3.head(7).reset_index()
 
 def getTop7Activities(normalizedActivities, top7):
-  normalizedActivities['totale'] = normalizedActivities['anagrafica.provincia']
   return normalizedActivities[normalizedActivities['activity'].isin(top7)]
 
 main()
