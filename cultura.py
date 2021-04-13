@@ -18,7 +18,13 @@ from nltk.corpus import stopwords
 from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 import plotly.graph_objects as go
 from copy import deepcopy
+import holoviews as hv
+from holoviews import opts, dim
+from bokeh.plotting import figure
+from PIL import Image
 
+
+PI=np.pi
 #st.set_page_config(layout="wide")
 
 ######### GENERAL
@@ -90,7 +96,6 @@ def main():
   st.title('Visualising Culture')
   st.sidebar.title("Sezione")
   dfImmut = unwrangleMainDataFrame()
-
   #df = dfImmut.copy();
   df = deepcopy(dfImmut)
   app_mode = st.sidebar.selectbox("",[ "Anagrafiche", "Attività", "Presentazione"]) #"Introduzione",
@@ -130,7 +135,7 @@ def unwrangleMainDataFrame():
   dbdata = json.loads(file_object.read())
 
   df = pd.json_normalize(dbdata)
-  df.drop('_id', axis =1, inplace = True)
+  # df.drop('_id', axis =1, inplace = True)
 
   for area in possibleAreas:
     df[area] = 0;
@@ -546,7 +551,7 @@ def getMisureFromActivityRow(row, k):
   keys = [n for n in row.keys() if n.startswith(k+'.misure')]
   return {z.replace(k+'.misure.',''): row[z] for z in keys}
 
-def plotRedditiPerSettore(df, template, colors, col = "role"):
+def plotRedditiPerSettore(df, template = "plotly_dark", colors = px.colors.sequential.Plasma_r, col = "role"):
   reddit = df.groupby(['role','activity','reddito'])['anagrafica.provincia'].count().reset_index()
   tot = reddit['anagrafica.provincia'].sum()
   reddit['perc'] = reddit['anagrafica.provincia'] / tot
@@ -625,10 +630,10 @@ def plotAspettativePerSettore(df):
   reddit['perc'] = reddit['anagrafica.provincia'] / tot
   fig = px.histogram(reddit, x="prospettive", y="perc", color="role", 
   category_orders={"prospettive":["catastrofe","paludosa","tristina","tengo_botta","ok","alla_grande"]},
-  barmode="group")
+  barmode="group", template="plotly_dark")
   return fig
 
-def plotAspettativePerAttivita(df):
+def plotAspettativePerAttivita(df, the_height = 2000):
  
   reddit2 = df.groupby(['role','activity','prospettive']).agg({"anagrafica.provincia" : "count"}).groupby(level=1).apply(lambda x: 100*x/x.sum()).reset_index()
   reddit2['perc'] = reddit2['anagrafica.provincia'] 
@@ -638,7 +643,7 @@ def plotAspettativePerAttivita(df):
   fig2 = px.histogram(reddit2, x="prospettive", y="perc", color="role", facet_col="activity",facet_col_wrap=4, facet_row_spacing=0.05,facet_col_spacing=0.02,
   category_orders={"prospettive":["catastrofe","paludosa","tristina","tengo_botta","ok","alla_grande"]},
   #barmode="group"
-  height=2000
+  height=the_height
   )
   fig2.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1].replace(' / ',",")[0:15]+'...'))
   # dfz = px.data.tips()
@@ -673,7 +678,8 @@ def plot2019vs2020(df):
   fig = px.line(k3, x="anno", y="valore", color="variable",
                line_group="variable",
                hover_name="variable",
-               height=900)
+               height=900,
+               template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
   fig.update_layout(legend=dict(
     yanchor="top",
     y=-0.3,
@@ -684,6 +690,7 @@ def plot2019vs2020(df):
 
 def main_presentazione(df):
   normalizedActivities = deepcopy(getActivities(df));
+  normalizedActivities
   normalizedActivities['totale'] = normalizedActivities['anagrafica.provincia']
   st.sidebar.markdown('<style>a.toc-link{text-decoration:none;color:black;padding-left:20px;font-weight:bold;}</style>', unsafe_allow_html=True)
   st.sidebar.markdown('<a class="toc-link" href="#prov">Compilazioni per provincia</a>', unsafe_allow_html=True)  
@@ -716,7 +723,7 @@ def main_presentazione(df):
   ## Totale compilazioni per settore
   """
   sect = normalizedActivities.groupby(['role']).agg({"totale" : "count"}).reset_index()
-  fig = px.pie(sect, values='totale', names='role', title='Compilazioni per settore',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  fig = px.pie(sect, height=600,values='totale', names='role', title='Compilazioni per settore',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
   st.plotly_chart(fig)
 
   st.markdown('<a  name="role_att"></a>', unsafe_allow_html=True)  
@@ -765,10 +772,24 @@ def main_presentazione(df):
   
   st.markdown('<a name="indicatori"></a>', unsafe_allow_html=True)  
   """
+  ## Aspettative per settore
+  """
+  st.plotly_chart(plotAspettativePerSettore(normalizedActivities))
+  """
+  ## ASPETTATIVE PER LE 7 ATTIVITA' PRINCIPALI
+  """
+  st.plotly_chart(plotAspettativePerAttivita(top7Activities,500))
+  """
   ## Andamento degli indicatori 2019 vs 2020
   ### per le 7 attività principali
   """
   st.plotly_chart(plot2019vs2020(top7Activities))
+
+  """
+  ## Soggetti che appartengono a più settori
+  """
+
+  static_overlaps()
     
 
 def get_top7(normalizedActivities):
@@ -780,4 +801,60 @@ def get_top7(normalizedActivities):
 def getTop7Activities(normalizedActivities, top7):
   return normalizedActivities[normalizedActivities['activity'].isin(top7)]
 
+def overlaps():
+  from bokeh.sampledata.les_mis import data
+
+  dfImmut = unwrangleMainDataFrame()
+  df = deepcopy(dfImmut)
+  names = ["organizzazione", "produzione", "supporto", "promozione", "educazione"]
+  hv.extension('bokeh')
+  hv.output(size=400)
+  overlaps = df[names]
+  overlaps
+  overlaps = overlaps[((overlaps["organizzazione"] + overlaps["produzione"]+overlaps["supporto"] + overlaps["promozione"] + overlaps['educazione'])> 1)] #at least oe connection
+  #overlaps.insert(loc=0, column='group', value=np.arange(len(overlaps)))
+  overlaps['group'] = overlaps.index if df.index.is_monotonic_increasing else range(len(overlaps))
+  # https://holoviews.org/reference/elements/bokeh/Chord.html
+  overlaps = overlaps.melt(id_vars=['group'],value_vars = names)
+  overlaps = overlaps[overlaps['value']==1]
+  overlaps
+  sources = [];
+  targets = [];
+  df2 = overlaps.groupby('group').aggregate(lambda tdf: tdf.unique().tolist())
+  c =0;
+  for index, row in df2.iterrows():
+      q = len(row['variable'])
+      trow = row['variable']
+      trow.sort()
+      for i in range(q):
+        
+        # targets.append(trow[0]) if i == q-1 else trow[i+1]
+        if(i == q-1):
+          #targets.append(trow[0]) 
+          c = 2
+        else:
+          sources.append(trow[i])
+          targets.append(trow[i+1]) 
+  links = pd.DataFrame( {'source': sources, 'target': targets})
+  links['value'] = 1;
+  linksWithWeight = links.groupby(['source','target'])['value'].count().reset_index()
+  linksWithWeight['color'] = linksWithWeight.apply(lambda row: row['source'] if row['source'] < row['target'] else row['target'], axis = 1)
+
+  ch = hv.Chord(linksWithWeight)
+  ch.opts(node_color='index', edge_color='color',bgcolor="black",label_text_color="white",label_index='index',cmap='Category10', edge_cmap='Category10' )
+  st.write(hv.render(ch, backend='bokeh'), use_container_width=True)
+     # use the result
+  # st.write(result)
+  # st.write(hv.render(hv.Chord(links), backend='bokeh'))
+  # st.bokeh_chart(fig, use_container_width=True)
+  # st.bokeh_chart(hv.render(fig))
+  # st.write(hv.render(fig))
+  # fig = hv.Chord(links)
+  # p = hv.render(fig, backend='bokeh')
+  # st.write(type(p))
+  # st.bokeh_chart(p)
+  
+def static_overlaps():
+  image = Image.open('sector_corr.png')
+  st.image(image)
 main()
