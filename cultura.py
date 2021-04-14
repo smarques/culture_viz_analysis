@@ -605,12 +605,12 @@ def plotFontiPerAttivita(df):
   facet_row_spacing=0.05,facet_col_spacing=0.02,
   #category_orders={"reddito":["reddito_0_10000","reddito_10001_20000","reddito_20001_30000","reddito_30001_50000","reddito_50000_"]},
   #barmode="group"
-  height=2000
+  height=900
   )
   #fig2.update_layout(showlegend=False)
   fig2.update_layout(legend=dict(
-    yanchor="top",
-    y=-0.1,
+    yanchor="bottom",
+    y=1.1,
     xanchor="left",
     x=0
   ))
@@ -690,7 +690,7 @@ def plot2019vs2020(df):
 
 def main_presentazione(df):
   normalizedActivities = deepcopy(getActivities(df));
-  normalizedActivities
+  # normalizedActivities
   normalizedActivities['totale'] = normalizedActivities['anagrafica.provincia']
   st.sidebar.markdown('<style>a.toc-link{text-decoration:none;color:black;padding-left:20px;font-weight:bold;}</style>', unsafe_allow_html=True)
   st.sidebar.markdown('<a class="toc-link" href="#prov">Compilazioni per provincia</a>', unsafe_allow_html=True)  
@@ -700,8 +700,13 @@ def main_presentazione(df):
   st.sidebar.markdown('<a class="toc-link" href="#top7">7 attività principali</a>', unsafe_allow_html=True)  
   st.sidebar.markdown('<a class="toc-link" href="#lavoro">Fai anche un altro lavoro?</a>', unsafe_allow_html=True) 
   st.sidebar.markdown('<a class="toc-link" href="#reddito">Fascia di reddito</a>', unsafe_allow_html=True) 
+  st.sidebar.markdown('<a class="toc-link" href="fonti_per_settore">Fonti per settore</a>', unsafe_allow_html=True) 
+  st.sidebar.markdown('<a class="toc-link" href="#fonti_per_att">Fonti per attività</a>', unsafe_allow_html=True) 
+  st.sidebar.markdown('<a class="toc-link" href="#aspettative_per_settore">Aspettative per settore</a>', unsafe_allow_html=True) 
+  st.sidebar.markdown('<a class="toc-link" href="#aspettative_per_attivita">Aspettative per attività</a>', unsafe_allow_html=True) 
   st.sidebar.markdown('<a class="toc-link" href="#indicatori">Indicatori 2019 vs 2020</a>', unsafe_allow_html=True) 
-  
+  st.sidebar.markdown('<a class="toc-link" href="#app_settori">Appartenenza a più settori</a>', unsafe_allow_html=True) 
+
   st.markdown('<a  name="prov"></a>', unsafe_allow_html=True)  
   """
   ## Totale compilazioni per provincia
@@ -715,7 +720,7 @@ def main_presentazione(df):
   ## Struttura per province e attività
   """
   roleatt = normalizedActivities.groupby(['anagrafica.provincia','activity']).agg({"totale" : "count"}).reset_index()
-  fig = px.treemap(roleatt, title="Settori e Attività", path=['anagrafica.provincia', 'activity'], color='activity',values='totale',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  fig = px.treemap(roleatt, title="Province e Attività", path=['anagrafica.provincia', 'activity'], color='activity',values='totale',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
   st.plotly_chart(fig)
 
   st.markdown('<a  name="sett"></a>', unsafe_allow_html=True)  
@@ -746,12 +751,14 @@ def main_presentazione(df):
   # top7Activities['totale'] = top7Activities['anagrafica.provincia']
   st.markdown('<a name="lavoro"></a>', unsafe_allow_html=True)  
   """
-  ## Fai anche un altro lavoro?
+  ## Fai anche un altro lavoro? (Settori)
   """
   lavuro = normalizedActivities.groupby(['anagrafica.altro_lavoro']).agg({"totale" : "count"}).reset_index()
   fig = px.pie(lavuro, values='totale', names='anagrafica.altro_lavoro', title='Fai anche un altro lavoro? DATI AGGREGATI',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
   st.plotly_chart(fig)
-
+  """
+  ## Fai anche un altro lavoro? (7 Attività Principali)
+  """
   for act in top7['activity']:
     lavuro = top7Activities[top7Activities['activity']==act].groupby(['anagrafica.altro_lavoro']).agg({"totale" : "count"}).reset_index()
     f = px.pie(lavuro, values='totale', names='anagrafica.altro_lavoro', title='Altro lavoro?\n('+act+')',color_discrete_sequence= px.colors.sequential.Plasma_r)
@@ -770,25 +777,41 @@ def main_presentazione(df):
     f = px.pie(p2, values='totale', names='reddito', color_discrete_sequence= px.colors.sequential.Plasma_r)
     st.plotly_chart(f)
   
-  st.markdown('<a name="indicatori"></a>', unsafe_allow_html=True)  
+  st.markdown('<a name="fonti_per_settore"></a>', unsafe_allow_html=True)  
+  """
+  ## FONTI PER SETTORE
+  """
+  st.plotly_chart(plotFontiPerSettore(normalizedActivities))
+
+  st.markdown('<a name="fonti_per_att"></a>', unsafe_allow_html=True)  
+  """
+  ## FONTI PER ATTIVITA'
+  """
+  st.plotly_chart(plotFontiPerAttivita(top7Activities),use_container_width=True)
+
+  st.markdown('<a name="aspettative_per_settore"></a>', unsafe_allow_html=True)  
   """
   ## Aspettative per settore
   """
   st.plotly_chart(plotAspettativePerSettore(normalizedActivities))
+
+  st.markdown('<a name="aspettative_per_attivita"></a>', unsafe_allow_html=True)  
   """
   ## ASPETTATIVE PER LE 7 ATTIVITA' PRINCIPALI
   """
   st.plotly_chart(plotAspettativePerAttivita(top7Activities,500))
+
+  st.markdown('<a name="indicatori"></a>', unsafe_allow_html=True)  
   """
   ## Andamento degli indicatori 2019 vs 2020
   ### per le 7 attività principali
   """
   st.plotly_chart(plot2019vs2020(top7Activities))
+  st.markdown('<a name="app_settori"></a>', unsafe_allow_html=True)  
 
   """
   ## Soggetti che appartengono a più settori
   """
-
   static_overlaps()
     
 
