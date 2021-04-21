@@ -552,12 +552,20 @@ def getMisureFromActivityRow(row, k):
   return {z.replace(k+'.misure.',''): row[z] for z in keys}
 
 def plotRedditiPerSettore(df, template = "plotly_dark", colors = px.colors.sequential.Plasma_r, col = "role"):
-  reddit = df.groupby(['role','activity','reddito'])['anagrafica.provincia'].count().reset_index()
-  tot = reddit['anagrafica.provincia'].sum()
-  reddit['perc'] = reddit['anagrafica.provincia'] / tot
-  fig = px.histogram(reddit, x="reddito", y="perc", color=col, template=template, color_discrete_sequence= colors,
-  category_orders={"reddito":["reddito_0_10000","reddito_10001_20000","reddito_20001_30000","reddito_30001_50000","reddito_50000_"]},
-  barmode="group")
+  # reddit = df.groupby(['role','activity','reddito'])['anagrafica.provincia'].count().reset_index()
+  # tot = reddit['anagrafica.provincia'].sum()
+  # reddit['perc'] = reddit['anagrafica.provincia'] / tot
+  # fig = px.histogram(reddit, x="reddito", y="perc", color=col, template=template, color_discrete_sequence= colors,
+  # category_orders={"reddito":["reddito_0_10000","reddito_10001_20000","reddito_20001_30000","reddito_30001_50000","reddito_50000_"]},
+  # barmode="group")
+  reddit = df.groupby(['reddito'])['anagrafica.provincia'].count().reset_index()
+  reddit['compilazioni'] = reddit['anagrafica.provincia']
+  # fig = px.histogram(reddit, x="reddito", y="compilazioni",  template=template, color_discrete_sequence= colors,
+  # category_orders={"reddito":["reddito_0_10000","reddito_10001_20000","reddito_20001_30000","reddito_30001_50000","reddito_50000_"]}
+  # )
+  fig = px.pie(reddit, names="reddito", values="compilazioni",  template=template, color_discrete_sequence= colors,
+  # category_orders={"reddito":["reddito_0_10000","reddito_10001_20000","reddito_20001_30000","reddito_30001_50000","reddito_50000_"]}
+  )
   return fig
 
 
@@ -565,8 +573,21 @@ def plotRedditiPerSettore(df, template = "plotly_dark", colors = px.colors.seque
 def plotFontiPerSettore(df):
   fontiCols = list(filter(lambda s: re.search('fonti\..*',s), df.columns));
   fonti = df.groupby(['role'])[fontiCols].mean().reset_index()
-  #fonti
-  fig = px.bar(fonti, x="role", y=fontiCols  )
+  fonti['vendita_servizi'] = fonti['fonti.servizi_settore_privato'] + fonti['fonti.servizi_settore_pubblico']
+  fonti['raccolta_contributi'] = fonti['fonti.contributi_settore_privato'] + fonti['fonti.contributi_settore_pubblico']
+  fonti['autofinanziamento'] = fonti['fonti.autofinanziamento']
+  fonti = fonti[['role','vendita_servizi','raccolta_contributi','autofinanziamento']]
+  # fonti
+  fig = px.bar(fonti, x="role", y=['vendita_servizi','raccolta_contributi','autofinanziamento']  )
+  # fontiCols = list(filter(lambda s: re.search('fonti\..*',s), df.columns));
+  # #fonti = df.groupby(['role'])[fontiCols].mean().reset_index()
+  # fonti = df[fontiCols].mean().reset_index()
+  # fonti['name'] = fonti[fonti.columns[0]]
+  # fonti['perc'] = fonti[fonti.columns[1]]
+  # # fonti
+  # fig = px.pie(fonti, names = 'name', values ='perc'
+  # # category_orders={"reddito":["reddito_0_10000","reddito_10001_20000","reddito_20001_30000","reddito_30001_50000","reddito_50000_"]}
+  # )
   return fig
  
 
@@ -592,14 +613,18 @@ def plotRedditiPerAttivita(df):
   # st.pyplot(g)
 
 def plotFontiPerAttivita(df):
-  fontiCols = list(filter(lambda s: re.search('fonti\..*',s), df.columns));
-  # labs = {}
-  # for c in fontiCols:
-  #   labs[c] = c.replace('fonti.','')
+
+  df['vendita_servizi'] = df['fonti.servizi_settore_privato'] + df['fonti.servizi_settore_pubblico']
+  df['raccolta_contributi'] = df['fonti.contributi_settore_privato'] + df['fonti.contributi_settore_pubblico']
+  df['autofinanziamento'] = df['fonti.autofinanziamento']
+  df = df[['role','activity','vendita_servizi','raccolta_contributi','autofinanziamento']]
+  # fontiCols = list(filter(lambda s: re.search('fonti\..*',s), df.columns));
+  fontiCols = ['vendita_servizi', 'raccolta_contributi','autofinanziamento']
 
   fonti = df.groupby(['role','activity'])[fontiCols].mean().reset_index().melt(id_vars=['role','activity'], value_vars=fontiCols)
   fonti['variable'] = fonti['variable'].str.replace('fonti.','')
   fonti['variable'] = fonti['variable'].str.replace('_',' ')
+
   fig2 = px.histogram(fonti, x="variable", y="value", color="variable", facet_col="activity",facet_col_wrap=4, 
   labels={'variable':'Fonte'}, 
   facet_row_spacing=0.05,facet_col_spacing=0.02,
@@ -628,9 +653,11 @@ def plotAspettativePerSettore(df):
   reddit = df.groupby(['role','activity','prospettive'])['anagrafica.provincia'].count().reset_index()
   tot = reddit['anagrafica.provincia'].sum()
   reddit['perc'] = reddit['anagrafica.provincia'] / tot
-  fig = px.histogram(reddit, x="prospettive", y="perc", color="role", 
-  category_orders={"prospettive":["catastrofe","paludosa","tristina","tengo_botta","ok","alla_grande"]},
-  barmode="group", template="plotly_dark")
+  # fig = px.histogram(reddit, x="prospettive", y="perc", color="role", 
+  # category_orders={"prospettive":["catastrofe","paludosa","tristina","tengo_botta","ok","alla_grande"]},
+  # barmode="group", template="plotly_dark")
+  fig = px.pie(reddit, names="prospettive", values="perc", 
+    template="plotly_dark")
   return fig
 
 def plotAspettativePerAttivita(df, the_height = 2000):
@@ -641,7 +668,7 @@ def plotAspettativePerAttivita(df, the_height = 2000):
 
 
   fig2 = px.histogram(reddit2, x="prospettive", y="perc", color="role", facet_col="activity",facet_col_wrap=4, facet_row_spacing=0.05,facet_col_spacing=0.02,
-  category_orders={"prospettive":["catastrofe","paludosa","tristina","tengo_botta","ok","alla_grande"]},
+  category_orders={"prospettive":["catastrofe","paludosa","tristina","tengo_botta","ok","benone","alla_grande"]},
   #barmode="group"
   height=the_height
   )
@@ -690,7 +717,9 @@ def plot2019vs2020(df):
 
 def main_presentazione(df):
   normalizedActivities = deepcopy(getActivities(df));
-  # normalizedActivities
+  normalizedActivities['activity'] = normalizedActivities['activity'].replace(['Gestione struttura / associazione spettacolo dal vivo'], 'Gestione spazi culturali')
+  normalizedActivities
+  
   normalizedActivities['totale'] = normalizedActivities['anagrafica.provincia']
   st.sidebar.markdown('<style>a.toc-link{text-decoration:none;color:black;padding-left:20px;font-weight:bold;}</style>', unsafe_allow_html=True)
   st.sidebar.markdown('<a class="toc-link" href="#prov">Compilazioni per provincia</a>', unsafe_allow_html=True)  
@@ -735,9 +764,34 @@ def main_presentazione(df):
   """
   ## Struttura per settori e attività
   """
-  roleatt = normalizedActivities.groupby(['role','activity']).agg({"totale" : "count"}).reset_index()
-  fig = px.treemap(roleatt, title="Settori e Attività", path=['role', 'activity'], color='activity',values='totale',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  rolesProduzione = normalizedActivities[normalizedActivities['role'] == 'produzione'];
+  roleatt = rolesProduzione.groupby(['activity']).agg({"totale" : "count"}).reset_index()
+  fig = px.pie(roleatt, height=600,values='totale', names='activity', title='Attività di Produzione (39,3% del totale)',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
   st.plotly_chart(fig)
+
+  rolesEducazione = normalizedActivities[normalizedActivities['role'] == 'educazione'];
+  roleatt = rolesEducazione.groupby(['activity']).agg({"totale" : "count"}).reset_index()
+  fig = px.pie(roleatt, height=600,values='totale', names='activity', title='Attività di Educazione (21,7% del totale)',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  st.plotly_chart(fig)
+
+  rolesOrg = normalizedActivities[normalizedActivities['role'] == 'organizzazione'];
+  roleatt = rolesOrg.groupby(['activity']).agg({"totale" : "count"}).reset_index()
+  fig = px.pie(roleatt, height=600,values='totale', names='activity', title='Attività di Organizzazione (19% del totale)',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  st.plotly_chart(fig)
+
+  rolesSup = normalizedActivities[normalizedActivities['role'] == 'supporto'];
+  roleatt = rolesSup.groupby(['activity']).agg({"totale" : "count"}).reset_index()
+  fig = px.pie(roleatt, height=600,values='totale', names='activity', title='Attività di Supporto (11,8% del totale)',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  st.plotly_chart(fig)
+
+  rolesProm= normalizedActivities[normalizedActivities['role'] == 'promozione'];
+  roleatt = rolesProm.groupby(['activity']).agg({"totale" : "count"}).reset_index()
+  fig = px.pie(roleatt, height=600,values='totale', names='activity', title='Attività di Promozione (8,17% del totale)',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  st.plotly_chart(fig)
+
+  # roleatt = normalizedActivities.groupby(['role','activity']).agg({"totale" : "count"}).reset_index()
+  # fig = px.treemap(roleatt, title="Settori e Attività", path=['role', 'activity'], color='activity',values='totale',template="plotly_dark", color_discrete_sequence= px.colors.sequential.Plasma_r)
+  # st.plotly_chart(fig)
  
   top7 = get_top7(normalizedActivities)
   st.markdown('<a name="top7"></a>', unsafe_allow_html=True)  
@@ -769,6 +823,8 @@ def main_presentazione(df):
   ## Fascia di reddito
   """
   st.markdown("### Dati aggregati: Reddito")
+
+
   st.plotly_chart(plotRedditiPerSettore(normalizedActivities,"plotly_dark",px.colors.sequential.Plasma_r))
   for act in top7['activity']:
     st.markdown("### "+act+": Reddito")
@@ -777,7 +833,8 @@ def main_presentazione(df):
     f = px.pie(p2, values='totale', names='reddito', color_discrete_sequence= px.colors.sequential.Plasma_r)
     st.plotly_chart(f)
   
-  st.markdown('<a name="fonti_per_settore"></a>', unsafe_allow_html=True)  
+  st.markdown('<a name="fonti_per_settore"></a>', unsafe_allow_html=True) 
+
   """
   ## FONTI PER SETTORE
   """
